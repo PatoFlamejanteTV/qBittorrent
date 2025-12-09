@@ -219,6 +219,11 @@ namespace BitTorrent
         qlonglong nextAnnounce() const override;
         TorrentAnnounceStatus announceStatus() const override;
 
+        bool isForceReannounceEnabled() const override;
+        void setForceReannounceEnabled(bool enabled) override;
+        int forceReannounceInterval() const override;
+        void setForceReannounceInterval(int interval) override;
+
         void setName(const QString &name) override;
         void setSequentialDownload(bool enable) override;
         void setFirstLastPiecePriority(bool enabled) override;
@@ -373,6 +378,10 @@ namespace BitTorrent
         bool m_isStopped = false;
         StopCondition m_stopCondition = StopCondition::None;
         SSLParameters m_sslParams;
+
+        bool m_forceReannounceEnabled = false;
+        int m_forceReannounceInterval = 30;
+        lt::time_point m_lastForceReannounce = lt::clock_type::now();
 
         bool m_unchecked = false;
 

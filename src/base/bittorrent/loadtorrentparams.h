@@ -66,6 +66,9 @@ namespace BitTorrent
         int inactiveSeedingTimeLimit = Torrent::USE_GLOBAL_INACTIVE_SEEDING_TIME;
         ShareLimitAction shareLimitAction = ShareLimitAction::Default;
 
+        bool forceReannounceEnabled = false;
+        int forceReannounceInterval = 30;
+
         SSLParameters sslParameters;
     };
 }

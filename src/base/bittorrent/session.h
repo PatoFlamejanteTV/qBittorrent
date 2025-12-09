@@ -400,6 +400,10 @@ namespace BitTorrent
         virtual bool isReannounceWhenAddressChangedEnabled() const = 0;
         virtual void setReannounceWhenAddressChangedEnabled(bool enabled) = 0;
         virtual void reannounceToAllTrackers() const = 0;
+
+        virtual void scheduleReannounce(Torrent* torrent) = 0;
+        virtual void unscheduleReannounce(Torrent* torrent) = 0;
+
         virtual int stopTrackerTimeout() const = 0;
         virtual void setStopTrackerTimeout(int value) = 0;
         virtual int maxConnections() const = 0;

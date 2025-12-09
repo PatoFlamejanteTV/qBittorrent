@@ -33,6 +33,7 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include <queue>
 
 #include <libtorrent/fwd.hpp>
 #include <libtorrent/portmap.hpp>
@@ -374,6 +375,8 @@ namespace BitTorrent
         bool isReannounceWhenAddressChangedEnabled() const override;
         void setReannounceWhenAddressChangedEnabled(bool enabled) override;
         void reannounceToAllTrackers() const override;
+        void scheduleReannounce(Torrent* torrent) override;
+        void unscheduleReannounce(Torrent* torrent) override;
         int stopTrackerTimeout() const override;
         void setStopTrackerTimeout(int value) override;
         int maxConnections() const override;
@@ -521,6 +524,7 @@ namespace BitTorrent
         void handleIPFilterParsed(int ruleCount);
         void handleIPFilterError();
         void torrentContentRemovingFinished(const QString &torrentName, const QString &errorMessage);
+        void onReannounceTimer();
 
     private:
         struct ResumeSessionContext;
@@ -870,6 +874,18 @@ namespace BitTorrent
         // ever required, synchronization should also be provided.
         bool m_isPortMappingEnabled = false;
         QHash<quint16, std::vector<lt::port_mapping_t>> m_mappedPorts;
+
+        using ReannounceEntry = std::pair<lt::time_point, TorrentID>;
+        struct ReannounceEntryCompare
+        {
+            bool operator()(const ReannounceEntry& a, const ReannounceEntry& b) const
+            {
+                return a.first > b.first;
+            }
+        };
+        QTimer *m_reannounceTimer = nullptr;
+        std::priority_queue<ReannounceEntry, std::vector<ReannounceEntry>, ReannounceEntryCompare> m_reannounceQueue;
+        QSet<TorrentID> m_unscheduledReannounces;
 
         QElapsedTimer m_wakeupCheckTimestamp;
 

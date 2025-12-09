@@ -1606,7 +1606,11 @@ bool TorrentImpl::isForceReannounceEnabled() const
 
 void TorrentImpl::setForceReannounceEnabled(const bool enabled)
 {
-    m_forceReannounceEnabled.store(enabled, std::memory_order_release);
+    m_forceReannounceEnabled = enabled;
+    if (enabled)
+        m_session->scheduleReannounce(this);
+    else
+        m_session->unscheduleReannounce(this);
 }
 
 int TorrentImpl::forceReannounceInterval() const
@@ -1617,6 +1621,8 @@ int TorrentImpl::forceReannounceInterval() const
 void TorrentImpl::setForceReannounceInterval(const int interval)
 {
     m_forceReannounceInterval = interval;
+    if (m_forceReannounceEnabled)
+        m_session->scheduleReannounce(this);
 }
 
 qreal TorrentImpl::popularity() const
@@ -2589,13 +2595,6 @@ void TorrentImpl::updateStatus(const lt::torrent_status &nativeStatus)
         m_lastSeenComplete = QDateTime::fromSecsSinceEpoch(m_nativeStatus.last_seen_complete);
 
     updateState();
-
-    if (m_forceReannounceEnabled) {
-        if (lt::total_seconds(lt::clock_type::now() - m_lastForceReannounce) > m_forceReannounceInterval) {
-            forceReannounce();
-            m_lastForceReannounce = lt::clock_type::now();
-        }
-    }
 
     m_payloadRateMonitor.addSample({nativeStatus.download_payload_rate
                               , nativeStatus.upload_payload_rate});

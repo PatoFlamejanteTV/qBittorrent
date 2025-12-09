@@ -381,7 +381,6 @@ namespace BitTorrent
 
         bool m_forceReannounceEnabled = false;
         int m_forceReannounceInterval = 30;
-        lt::time_point m_lastForceReannounce = lt::clock_type::now();
 
         bool m_unchecked = false;
 

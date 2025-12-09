@@ -99,9 +99,6 @@ PropertiesWidget::PropertiesWidget(QWidget *parent)
     connect(BitTorrent::Session::instance(), &BitTorrent::Session::torrentMetadataReceived, this, &PropertiesWidget::updateTorrentInfos);
     connect(m_ui->filesList, &TorrentContentWidget::stateChanged, this, &PropertiesWidget::saveSettings);
 
-    connect(m_ui->forceReannounce, &QCheckBox::toggled, this, &PropertiesWidget::on_forceReannounce_toggled);
-    connect(m_ui->forceReannounceInterval, qOverload<int>(&QSpinBox::valueChanged), this, &PropertiesWidget::on_forceReannounceInterval_valueChanged);
-
     // set bar height relative to screen dpi
     const int barHeight = 18;
 

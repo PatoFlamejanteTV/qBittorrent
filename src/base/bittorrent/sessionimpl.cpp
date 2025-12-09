@@ -609,6 +609,10 @@ SessionImpl::SessionImpl(QObject *parent)
     connect(m_recentErroredTorrentsTimer, &QTimer::timeout
         , this, [this]() { m_recentErroredTorrents.clear(); });
 
+    m_reannounceTimer = new QTimer(this);
+    m_reannounceTimer->setSingleShot(true);
+    connect(m_reannounceTimer, &QTimer::timeout, this, &SessionImpl::onReannounceTimer);
+
     m_seedingLimitTimer->setInterval(10s);
     connect(m_seedingLimitTimer, &QTimer::timeout, this, [this]
     {
@@ -747,6 +751,54 @@ SessionImpl::~SessionImpl()
         LogMsg(tr("BitTorrent session successfully finished."));
     else
         LogMsg(tr("Session shutdown timed out."));
+}
+
+void SessionImpl::onReannounceTimer()
+{
+    while (true) {
+        if (m_reannounceQueue.empty()) {
+            m_reannounceTimer->stop();
+            return;
+        }
+
+        const auto& [next_reannounce, torrent_id] = m_reannounceQueue.top();
+
+        if (m_unscheduledReannounces.contains(torrent_id)) {
+            m_reannounceQueue.pop();
+            m_unscheduledReannounces.remove(torrent_id);
+            continue;
+        }
+
+        lt::time_point now = lt::clock_type::now();
+        if (next_reannounce > now) {
+            m_reannounceTimer->start(std::chrono::duration_cast<std::chrono::milliseconds>(next_reannounce - now));
+            return;
+        }
+
+        m_reannounceQueue.pop();
+
+        TorrentImpl* torrent = m_torrents.value(torrent_id);
+        if (torrent && torrent->isForceReannounceEnabled()) {
+            torrent->forceReannounce();
+            m_reannounceQueue.push({now + std::chrono::seconds(torrent->forceReannounceInterval()), torrent->id()});
+        }
+    }
+}
+
+void SessionImpl::scheduleReannounce(Torrent* torrent)
+{
+    if (!torrent) return;
+    m_unscheduledReannounces.remove(torrent->id());
+    m_reannounceQueue.push({lt::clock_type::now() + lt::seconds(torrent->forceReannounceInterval()), torrent->id()});
+    if (!m_reannounceTimer->isActive() || m_reannounceQueue.top().first < (lt::clock_type::now() + std::chrono::milliseconds(m_reannounceTimer->remainingTime()))) {
+        onReannounceTimer();
+    }
+}
+
+void SessionImpl::unscheduleReannounce(Torrent* torrent)
+{
+    if (!torrent) return;
+    m_unscheduledReannounces.insert(torrent->id());
 }
 
 QString SessionImpl::getDHTBootstrapNodes() const
@@ -2482,6 +2534,8 @@ bool SessionImpl::removeTorrent(const TorrentID &id, const TorrentRemoveOption d
 
     const TorrentID torrentID = torrent->id();
     const QString torrentName = torrent->name();
+
+    unscheduleReannounce(torrent);
 
     qDebug("Deleting torrent with ID: %s", qUtf8Printable(torrentID.toString()));
     emit torrentAboutToBeRemoved(torrent);
@@ -5229,6 +5283,9 @@ void SessionImpl::updateSeedingLimitTimer()
     {
         m_seedingLimitTimer->start();
     }
+
+    if (torrent->isForceReannounceEnabled())
+        scheduleReannounce(torrent);
 }
 
 void SessionImpl::handleTorrentShareLimitChanged(TorrentImpl *const)

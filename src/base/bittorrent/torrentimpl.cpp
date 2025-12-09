@@ -1606,7 +1606,7 @@ bool TorrentImpl::isForceReannounceEnabled() const
 
 void TorrentImpl::setForceReannounceEnabled(const bool enabled)
 {
-    m_forceReannounceEnabled = enabled;
+    m_forceReannounceEnabled.store(enabled, std::memory_order_release);
 }
 
 int TorrentImpl::forceReannounceInterval() const

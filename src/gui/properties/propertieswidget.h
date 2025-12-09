@@ -98,6 +98,8 @@ protected slots:
     void showPiecesAvailability(bool show);
 
 private slots:
+    void on_forceReannounce_toggled(bool checked);
+    void on_forceReannounceInterval_valueChanged(int value);
     void configure();
     void updateSavePath(BitTorrent::Torrent *torrent);
 

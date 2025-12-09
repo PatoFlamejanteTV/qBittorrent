@@ -99,6 +99,9 @@ PropertiesWidget::PropertiesWidget(QWidget *parent)
     connect(BitTorrent::Session::instance(), &BitTorrent::Session::torrentMetadataReceived, this, &PropertiesWidget::updateTorrentInfos);
     connect(m_ui->filesList, &TorrentContentWidget::stateChanged, this, &PropertiesWidget::saveSettings);
 
+    connect(m_ui->forceReannounce, &QCheckBox::toggled, this, &PropertiesWidget::on_forceReannounce_toggled);
+    connect(m_ui->forceReannounceInterval, qOverload<int>(&QSpinBox::valueChanged), this, &PropertiesWidget::on_forceReannounceInterval_valueChanged);
+
     // set bar height relative to screen dpi
     const int barHeight = 18;
 
@@ -239,6 +242,8 @@ void PropertiesWidget::clear()
     m_ui->labelLastSeenCompleteVal->clear();
     m_ui->labelCreatedByVal->clear();
     m_ui->labelAddedOnVal->clear();
+    m_ui->forceReannounce->setChecked(false);
+    m_ui->forceReannounceInterval->setValue(30);
     m_downloadedPieces->clear();
     m_piecesAvailability->clear();
     m_peerList->clear();
@@ -320,6 +325,11 @@ void PropertiesWidget::loadTorrentInfos(BitTorrent::Torrent *const torrent)
     if (!m_torrent)
         return;
 
+    // Forced reannounce
+    m_ui->forceReannounce->setChecked(m_torrent->isForceReannounceEnabled());
+    m_ui->forceReannounceInterval->setValue(m_torrent->forceReannounceInterval());
+    m_ui->forceReannounceInterval->setEnabled(m_torrent->isForceReannounceEnabled());
+
     // Save path
     updateSavePath(m_torrent);
     // Info hashes
@@ -348,6 +358,21 @@ void PropertiesWidget::loadTorrentInfos(BitTorrent::Torrent *const torrent)
 
     // Load dynamic data
     loadDynamicData();
+}
+
+void PropertiesWidget::on_forceReannounce_toggled(bool checked)
+{
+    if (!m_torrent) return;
+
+    m_torrent->setForceReannounceEnabled(checked);
+    m_ui->forceReannounceInterval->setEnabled(checked);
+}
+
+void PropertiesWidget::on_forceReannounceInterval_valueChanged(int value)
+{
+    if (!m_torrent) return;
+
+    m_torrent->setForceReannounceInterval(value);
 }
 
 void PropertiesWidget::readSettings()

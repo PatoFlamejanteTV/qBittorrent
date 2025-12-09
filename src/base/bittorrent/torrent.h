@@ -293,6 +293,11 @@ namespace BitTorrent
         virtual qlonglong nextAnnounce() const = 0;
         virtual TorrentAnnounceStatus announceStatus() const = 0;
 
+        virtual bool isForceReannounceEnabled() const = 0;
+        virtual void setForceReannounceEnabled(bool enabled) = 0;
+        virtual int forceReannounceInterval() const = 0;
+        virtual void setForceReannounceInterval(int interval) = 0;
+
         virtual void setName(const QString &name) = 0;
         virtual void setSequentialDownload(bool enable) = 0;
         virtual void setFirstLastPiecePriority(bool enabled) = 0;

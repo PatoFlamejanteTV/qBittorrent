@@ -323,6 +323,8 @@ TorrentImpl::TorrentImpl(SessionImpl *session, const lt::torrent_handle &nativeH
     , m_hasFirstLastPiecePriority(params.firstLastPiecePriority)
     , m_useAutoTMM(params.useAutoTMM)
     , m_isStopped(params.stopped)
+    , m_forceReannounceEnabled(params.forceReannounceEnabled)
+    , m_forceReannounceInterval(params.forceReannounceInterval)
     , m_sslParams(params.sslParameters)
     , m_ltAddTorrentParams(std::move(params.ltAddTorrentParams))
     , m_downloadLimit(cleanLimitValue(m_ltAddTorrentParams.download_limit))
@@ -1597,6 +1599,26 @@ TorrentAnnounceStatus TorrentImpl::announceStatus() const
     return *m_announceStatus;
 }
 
+bool TorrentImpl::isForceReannounceEnabled() const
+{
+    return m_forceReannounceEnabled;
+}
+
+void TorrentImpl::setForceReannounceEnabled(const bool enabled)
+{
+    m_forceReannounceEnabled.store(enabled, std::memory_order_release);
+}
+
+int TorrentImpl::forceReannounceInterval() const
+{
+    return m_forceReannounceInterval;
+}
+
+void TorrentImpl::setForceReannounceInterval(const int interval)
+{
+    m_forceReannounceInterval = interval;
+}
+
 qreal TorrentImpl::popularity() const
 {
     // in order to produce floating-point numbers using `std::chrono::duration_cast`,
@@ -2260,6 +2282,8 @@ void TorrentImpl::prepareResumeData(lt::add_torrent_params params)
         .seedingTimeLimit = m_seedingTimeLimit,
         .inactiveSeedingTimeLimit = m_inactiveSeedingTimeLimit,
         .shareLimitAction = m_shareLimitAction,
+        .forceReannounceEnabled = m_forceReannounceEnabled,
+        .forceReannounceInterval = m_forceReannounceInterval,
         .sslParameters = m_sslParams
     };
 
@@ -2565,6 +2589,13 @@ void TorrentImpl::updateStatus(const lt::torrent_status &nativeStatus)
         m_lastSeenComplete = QDateTime::fromSecsSinceEpoch(m_nativeStatus.last_seen_complete);
 
     updateState();
+
+    if (m_forceReannounceEnabled) {
+        if (lt::total_seconds(lt::clock_type::now() - m_lastForceReannounce) > m_forceReannounceInterval) {
+            forceReannounce();
+            m_lastForceReannounce = lt::clock_type::now();
+        }
+    }
 
     m_payloadRateMonitor.addSample({nativeStatus.download_payload_rate
                               , nativeStatus.upload_payload_rate});

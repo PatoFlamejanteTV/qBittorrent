@@ -454,19 +454,9 @@ void TorrentContentWidget::filterByExtension()
 
     // get all files
     QList<QModelIndex> allFiles;
-    QStack<QModelIndex> parents;
-    parents.push(QModelIndex()); // Start with the invisible root
-
-    while (!parents.isEmpty()) {
-        const QModelIndex parent = parents.pop();
-        for (int i = 0; i < m_filterModel->rowCount(parent); ++i) {
-            const QModelIndex index = m_filterModel->index(i, 0, parent);
-            if (m_filterModel->hasChildren(index)) {
-                parents.push(index);
-            } else {
-                allFiles.append(index);
-            }
-        }
+    QModelIndexIterator it(m_filterModel, QModelIndexIterator::Leaves);
+    while (it.hasNext()) {
+        allFiles.append(it.next());
     }
 
     // filter and apply

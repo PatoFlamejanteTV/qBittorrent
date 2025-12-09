@@ -30,10 +30,18 @@
 #include "torrentcontentwidget.h"
 
 #include <QDir>
+#include <QFileInfo>
 #include <QHeaderView>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QPushButton>
+#include <QStack>
+#include <QVBoxLayout>
 #include <QMessageBox>
 #include <QModelIndexList>
 #include <QShortcut>
@@ -405,6 +413,79 @@ void TorrentContentWidget::displayColumnHeaderMenu()
     menu->popup(QCursor::pos());
 }
 
+void TorrentContentWidget::filterByExtension()
+{
+    // create the dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Filter by extension"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *label = new QLabel(tr("Extension:"), &dialog);
+    auto *lineEdit = new QLineEdit(&dialog);
+    lineEdit->setPlaceholderText(tr("e.g. .mkv or mkv"));
+    layout->addWidget(label);
+    layout->addWidget(lineEdit);
+    auto *buttonBox = new QDialogButtonBox(&dialog);
+    auto *selectButton = new QPushButton(tr("Select"), &dialog);
+    auto *unselectButton = new QPushButton(tr("Unselect"), &dialog);
+    buttonBox->addButton(selectButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(unselectButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(QDialogButtonBox::Cancel);
+    layout->addWidget(buttonBox);
+
+    bool selectAction = false;
+    connect(selectButton, &QPushButton::clicked, [&]() {
+        selectAction = true;
+        dialog.accept();
+    });
+    connect(unselectButton, &QPushButton::clicked, [&]() {
+        selectAction = false;
+        dialog.accept();
+    });
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() == QDialog::Rejected)
+        return;
+
+    const QString extension = lineEdit->text().trimmed();
+    if (extension.isEmpty())
+        return;
+
+    const bool select = selectAction;
+
+    // get all files
+    QList<QModelIndex> allFiles;
+    QStack<QModelIndex> parents;
+    parents.push(QModelIndex()); // Start with the invisible root
+
+    while (!parents.isEmpty()) {
+        const QModelIndex parent = parents.pop();
+        for (int i = 0; i < m_filterModel->rowCount(parent); ++i) {
+            const QModelIndex index = m_filterModel->index(i, 0, parent);
+            if (m_filterModel->hasChildren(index)) {
+                parents.push(index);
+            } else {
+                allFiles.append(index);
+            }
+        }
+    }
+
+    // filter and apply
+    QString bareExtension = extension.startsWith('.') ? extension.mid(1) : extension;
+    QList<int> fileIds;
+    for (const auto &index : allFiles) {
+        const QString filename = m_filterModel->data(index).toString();
+        if (QFileInfo(filename).suffix().compare(bareExtension, Qt::CaseInsensitive) == 0) {
+            fileIds.append(m_filterModel->getFileIndex(index));
+        }
+    }
+
+    if (!fileIds.isEmpty()) {
+        contentHandler()->prioritizeFiles(fileIds, select
+            ? BitTorrent::DownloadPriority::Normal
+            : BitTorrent::DownloadPriority::Ignored);
+    }
+}
+
 void TorrentContentWidget::displayContextMenu()
 {
     const QModelIndexList selectedRows = selectionModel()->selectedRows(0);
@@ -471,6 +552,9 @@ void TorrentContentWidget::displayContextMenu()
         menu->addSeparator();
         menu->addAction(tr("Priority by shown file order"), this, &TorrentContentWidget::applyPrioritiesByOrder);
     }
+
+    menu->addSeparator();
+    menu->addAction(tr("Filter by extension..."), this, &TorrentContentWidget::filterByExtension);
 
     // The selected torrent might have disappeared during exec()
     // so we just close menu when an appropriate model is reset

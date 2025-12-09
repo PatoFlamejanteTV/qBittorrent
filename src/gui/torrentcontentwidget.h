@@ -123,6 +123,7 @@ private:
     // Expand single-item folders recursively.
     // This will trigger sorting and filtering so do it after all relevant data is loaded.
     void expandRecursively();
+    void filterByExtension();
 
     TorrentContentModel *m_model;
     TorrentContentFilterModel *m_filterModel;
